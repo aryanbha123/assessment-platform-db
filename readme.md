@@ -1,122 +1,87 @@
-# 📦 Database Infrastructure
+# Assessment Platform DB
 
-Production-ready Docker setup for:
+The database layer for an assessment platform: PostgreSQL, MongoDB and Redis, run together with Docker Compose.
 
--   PostgreSQL
--   MongoDB
--   Redis
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)
 
-------------------------------------------------------------------------
+## Overview
 
-# 🚀 Tech Stack
+This repo holds only infrastructure. A single `docker-compose.yml` starts the three datastores a backend needs on one shared bridge network. Each one has a persistent volume, a health check and a small init script.
 
--   PostgreSQL 15 (Alpine)
--   MongoDB 7
--   Redis 7 (AOF enabled)
--   Docker Compose v3.9
+## Features
 
-------------------------------------------------------------------------
+- **PostgreSQL 15 (Alpine)**: runs `postgres/init.sql` on first start. The script enables the `uuid-ossp` extension and creates a `health_check` table.
+- **MongoDB 7**: runs `mongo/init.js` on first start. The script creates a `health_check` collection and inserts one status document.
+- **Redis 7 (Alpine)**: password-protected, with AOF persistence (`--appendonly yes`).
+- Named volumes (`postgres_data`, `mongo_data`, `redis_data`), so data survives container restarts.
+- Health checks: `pg_isready` for Postgres, `mongosh` ping for Mongo, `redis-cli ping` for Redis.
+- `restart: always` on every service.
 
-# 📁 Project Structure
+## Tech Stack
 
-    .
-    ├── docker-compose.yml
-    ├── .env.production
-    ├── postgres/
-    │   └── init.sql
-    ├── mongo/
-    │   └── init.js
-    └── redis/
+| Service | Image | Container | Port |
+|---------|-------|-----------|------|
+| PostgreSQL | `postgres:15-alpine` | `postgres_db` | 5432 |
+| MongoDB | `mongo:7` | `mongo_db` | 27017 |
+| Redis | `redis:7-alpine` | `redis_cache` | 6379 |
 
-------------------------------------------------------------------------
+## Project Structure
 
-# ⚙️ Environment Variables (.env.production)
+```
+.
+├── docker-compose.yml   # All three services, volumes and the db_network bridge
+├── postgres/
+│   └── init.sql         # uuid-ossp extension + health_check table
+└── mongo/
+    └── init.js          # health_check collection + seed document
+```
 
-    # PostgreSQL
-    POSTGRES_USER=admin
-    POSTGRES_PASSWORD=strongpassword
-    POSTGRES_DB=appdb
+## Getting Started
 
-    # MongoDB
-    MONGO_USER=root
-    MONGO_PASSWORD=strongpassword
-    MONGO_DB=appdb
+### Prerequisites
 
-    # Redis
-    REDIS_PASSWORD=strongredispass
+- Docker with the Docker Compose plugin
 
-------------------------------------------------------------------------
+### Environment Variables
 
-# 🐘 PostgreSQL Connection Strings
+Create a `.env` file next to `docker-compose.yml` that sets these variables:
 
-## Inside Docker Network
+| Variable | Used by |
+|----------|---------|
+| `POSTGRES_USER` | PostgreSQL |
+| `POSTGRES_PASSWORD` | PostgreSQL |
+| `POSTGRES_DB` | PostgreSQL |
+| `MONGO_USER` | MongoDB root user |
+| `MONGO_PASSWORD` | MongoDB root password |
+| `MONGO_DB` | MongoDB initial database |
+| `REDIS_PASSWORD` | Redis `requirepass` |
 
-postgresql://admin:strongpassword@postgres:5432/appdb
+### Run
 
-## From Localhost (Host Machine)
+```bash
+docker compose up -d      # start all services
+docker compose ps         # check health status
+docker compose down       # stop
+```
 
-postgresql://admin:strongpassword@localhost:5432/appdb
+### Connection Strings
 
-## From Server Public IP
+Inside the Compose network, use the service names (`postgres`, `mongodb`, `redis`). From the host machine, use `localhost`.
 
-postgresql://admin:strongpassword@YOUR_SERVER_IP:5432/appdb
+```
+postgresql://<POSTGRES_USER>:<POSTGRES_PASSWORD>@localhost:5432/<POSTGRES_DB>
+mongodb://<MONGO_USER>:<MONGO_PASSWORD>@localhost:27017/<MONGO_DB>?authSource=admin
+redis://:<REDIS_PASSWORD>@localhost:6379
+```
 
-------------------------------------------------------------------------
+## Notes
 
-# 🍃 MongoDB Connection Strings
+- All three ports are published on the host. In production, remove or firewall these port mappings so the databases are not publicly reachable.
+- Use strong passwords, keep `.env` out of version control, and set up backups for the volumes.
 
-## Inside Docker Network
+## Author
 
-mongodb://root:strongpassword@mongodb:27017/appdb?authSource=admin
-
-## From Localhost
-
-mongodb://root:strongpassword@localhost:27017/appdb?authSource=admin
-
-## From Server Public IP
-
-mongodb://root:strongpassword@YOUR_SERVER_IP:27017/appdb?authSource=admin
-
-------------------------------------------------------------------------
-
-# ⚡ Redis Connection Strings
-
-## Inside Docker Network
-
-redis://:strongredispass@redis:6379
-
-## From Localhost
-
-redis://:strongredispass@localhost:6379
-
-## From Server Public IP
-
-redis://:strongredispass@YOUR_SERVER_IP:6379
-
-------------------------------------------------------------------------
-
-# ▶️ Run Services
-
-docker compose --env-file .env.production up -d
-
-Stop services:
-
-docker compose down
-
-------------------------------------------------------------------------
-
-# 🧠 Important Notes
-
--   Inside Docker use service names: postgres, mongodb, redis
--   From host machine use localhost
--   From remote server use your public IP
--   Do NOT expose database ports publicly in real production
--   Always use strong passwords
--   Configure backups
-
-------------------------------------------------------------------------
-
-# 🏗 Architecture Overview
-
-Backend App ↓ Docker Network ↓ Postgres \| MongoDB \| Redis
-# assesment-platform-db
+**Aryan Bhandari**: [GitHub](https://github.com/aryanbha123)
